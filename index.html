@@ -477,6 +477,7 @@
             <button onclick="setFilter('ALL')" data-filter="ALL"
               class="filter-pill active px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap smooth-transition bg-amber-500 text-slate-950 shadow-sm">
               ทั้งหมด (8)
+              ทั้งหมด (9)
             </button>
             <button onclick="setFilter('CEREMONY')" data-filter="CEREMONY"
               class="filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300">
@@ -496,6 +497,7 @@
             </button>
           </div>
           <span id="resultCountLabel" class="hidden sm:inline text-[10px] text-slate-400 shrink-0">8 สนาม</span>
+          <span id="resultCountLabel" class="hidden sm:inline text-[10px] text-slate-400 shrink-0">9 สนาม</span>
         </div>
       </div>
 
@@ -642,6 +644,7 @@
     /**
      * ============================================================================
      * ข้อมูลพิกัดสนามกีฬา งานกีฬาคชรัตน์เกมส์ จ.สุรินทร์ (ทั้งหมด 8 สนาม)
+     * ข้อมูลพิกัดสนามกีฬา งานกีฬาคชรัตน์เกมส์ จ.สุรินทร์ (ทั้งหมด 9 สนาม)
      * ============================================================================
      */
 
@@ -691,8 +694,12 @@
       },
       {
         id: 'venue-3-volleyball',
+        id: 'venue-3-volleyball-men',
         order: 3,
         venueCode: 'สนามที่ 3',
+        venueShort: '3. สนามวอลเลย์บอล',
+        venueName: 'สนามวอลเลย์บอล',
+        sportType: 'กีฬาวอลเลย์บอล',
         venueShort: '3. สนามวอลเลย์บอลชาย',
         venueName: 'สนามวอลเลย์บอลชาย',
         sportType: 'กีฬาวอลเลย์บอลชาย',
@@ -703,7 +710,8 @@
         lng: 103.4814376,
         mapUrl: 'https://www.google.com/maps/place/14.859937,103.481438/data=!4m6!3m5!1s0!7e2!8m2!3d14.8599369!4d103.48143759999999!18m1!1e1?utm_source=mstt_1&entry=gps&coh=192189&g_ep=CAESBzI2LjM5LjQYACD67A0qxwEsOTQyNjc3MjcsOTQyOTIxOTUsOTQyOTk1MzIsMTAwNzk2NDk4LDEwMDc5Nzc2MSwxMDA3OTY1MzUsOTQyODA1NzYsOTQyMDczOTQsOTQyMDc1MDYsOTQyMDg1MDYsOTQyMTg2NTMsOTQyMjk4MzksOTQyNzUxNjgsOTQyNzk2MTksMTAwODM1NzEwLDEwMDgyNTAyNSwxMDA4MjAyMzcsMTAwODIyNDk0LDEwMDgyNzk3NSwxMDA4MzgzNTksMTIxODE2NDYxQgJUSA%3D%3D&skid=9011b9e2-e95b-4c8b-a343-de680492f501&g_st=ac',
         color: '#3B82F6', // Blue
-        keywords: 'สนามวอลเลย์บอล วอลเลย์บอลชาย volleyball สนามที่ 3'
+        keywords: 'สนามวอลเลย์บอล วอลเลย์บอล volleyball สนามที่ 3'
+        keywords: 'สนามวอลเลย์บอลชาย วอลเลย์บอลชาย volleyball men สนามที่ 3'
       },
       {
         id: 'venue-4-futsal',
@@ -786,7 +794,7 @@
         keywords: 'สนามตะกร้อ ตะกร้อ เซปักตะกร้อ takraw สนามที่ 8'
       },
       {
-        id: 'venue-9-volleyball',
+        id: 'venue-9-volleyball-women',
         order: 9,
         venueCode: 'สนามที่ 9',
         venueShort: '9. สนามวอลเลย์บอลหญิง',
@@ -795,11 +803,11 @@
         category: 'TEAM',
         emoji: '🏐',
         dms: '14°51\'13.0"N 103°28\'56.2"E',
-        lat: 14.853618373714863,
-        lng: 103.48226929172121,
-        mapUrl: 'https://www.google.com/maps/place/14%C2%B051'13.0%22N+103%C2%B028'56.2%22E/@14.8534123,103.4819382,260m/data=!3m1!1e3!4m4!3m3!8m2!3d14.8536111!4d103.4822654?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
-        color: '#3B82F6', // Blue
-        keywords: 'สนามวอลเลย์บอล วอลเลย์บอลหญิง volleyball สนามที่ 9'
+        lat: 14.8536111,
+        lng: 103.4822654,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'13.0%22N+103%C2%B028\'56.2%22E/@14.8534123,103.4819382,260m/data=!3m1!1e3!4m4!3m3!8m2!3d14.8536111!4d103.4822654?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#F43F5E', // Rose
+        keywords: 'สนามวอลเลย์บอลหญิง วอลเลย์บอลหญิง volleyball women สนามที่ 9'
       }
     ];
 
