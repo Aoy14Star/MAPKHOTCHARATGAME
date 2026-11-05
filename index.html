@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>งานกีฬาคชรัตน์เกมส์ | ระบบแผนที่สนามกีฬาและนำทาง จ.สุรินทร์</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS for Interactive Map & Google/Dark Tile Layers -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Noto Sans Thai"', 'sans-serif'],
+          },
+          colors: {
+            obsidian: '#0B0F19',
+            panel: '#111827',
+            cardDark: '#1E293B',
+            gold: '#F59E0B',
+            cyanGlow: '#06B6D4',
+          },
+          boxShadow: {
+            'dark-glow': '0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07)',
+            'gold-glow': '0 8px 24px -4px rgba(245, 158, 11, 0.28)',
+            'cyan-glow': '0 8px 24px -4px rgba(6, 182, 212, 0.28)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', sans-serif;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      height: 100dvh;
+      width: 100vw;
+      overscroll-behavior: none;
+    }
+
+    /* Smooth Custom Scrollbar */
+    .custom-scroll {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.45);
+    }
+
+    /* Fluid Transitions */
+    .smooth-transition {
+      transition: all 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Custom Map Marker Styling */
+    .custom-pin-wrapper {
+      background: transparent;
+      border: none;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    .marker-pill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #F8FAFC;
+      backdrop-filter: blur(10px);
+      padding: 5.5px 12px 5.5px 9px;
+      border-radius: 9999px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+      white-space: nowrap;
+      transform: translate(-50%, calc(-100% - 6px));
+      transform-origin: bottom center;
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease;
+      cursor: pointer;
+    }
+
+    html:not(.dark) .marker-pill {
+      background: rgba(255, 255, 255, 0.96);
+      color: #0F172A;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16), 0 0 0 1.5px #FFFFFF;
+    }
+
+    .marker-pill::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 10px;
+      height: 10px;
+      background: rgba(15, 23, 42, 0.94);
+      border-right: 1.5px solid rgba(255, 255, 255, 0.14);
+      border-bottom: 1.5px solid rgba(255, 255, 255, 0.14);
+      z-index: -1;
+    }
+
+    html:not(.dark) .marker-pill::after {
+      background: #FFFFFF;
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+
+    .marker-pill:hover,
+    .marker-pill.active-pin {
+      transform: translate(-50%, calc(-100% - 6px)) scale(1.08);
+      z-index: 999 !important;
+      box-shadow: 0 12px 28px rgba(245, 158, 11, 0.35), 0 0 0 2px #F59E0B;
+    }
+
+    .marker-pill.active-pin {
+      background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+      color: #FFFFFF;
+    }
+
+    .marker-pill.active-pin::after {
+      background: #0F172A;
+      border-color: #F59E0B;
+    }
+
+    /* Exact Coordinate Anchor Dot at [lat, lng] */
+    .marker-anchor-dot {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 9999px;
+      transform: translate(-50%, -50%);
+      border: 1.5px solid #FFFFFF;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    }
+
+    /* User GPS Pulsing Radar Dot */
+    .user-location-marker {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 26px;
+      height: 26px;
+      transform: translate(-50%, -50%);
+    }
+
+    .user-location-core {
+      width: 16px;
+      height: 16px;
+      background: #06B6D4;
+      border: 3px solid #FFFFFF;
+      border-radius: 9999px;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.9);
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      z-index: 2;
+    }
+
+    .user-location-pulse {
+      width: 38px;
+      height: 38px;
+      background: rgba(6, 182, 212, 0.32);
+      border-radius: 9999px;
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      z-index: 1;
+      animation: gpsPulse 2s infinite ease-out;
+    }
+
+    @keyframes gpsPulse {
+      0% {
+        transform: scale(0.55);
+        opacity: 0.95;
+      }
+      100% {
+        transform: scale(2.25);
+        opacity: 0;
+      }
+    }
+
+    /* Animated Route Line */
+    .animated-route-line {
+      stroke-dasharray: 10, 10;
+      animation: routeDash 28s linear infinite;
+    }
+
+    @keyframes routeDash {
+      to {
+        stroke-dashoffset: -1000;
+      }
+    }
+
+    /* Leaflet attribution styling */
+    .leaflet-control-attribution {
+      font-size: 10px !important;
+      background: rgba(15, 23, 42, 0.75) !important;
+      color: #94A3B8 !important;
+      backdrop-filter: blur(4px);
+      border-radius: 8px 0 0 0;
+      padding: 2px 8px !important;
+    }
+    .leaflet-control-attribution a {
+      color: #CBD5E1 !important;
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-screen overflow-hidden select-none bg-[#F8FAFC] dark:bg-obsidian text-slate-900 dark:text-slate-100 smooth-transition">
+
+  <!-- Main App Container -->
+  <div class="relative w-full h-[100dvh] flex flex-col lg:flex-row overflow-hidden">
+
+    <!-- ================= MOBILE ULTRA-COMPACT TOP BAR (< 1024px) ================= -->
+    <header class="lg:hidden fixed top-0 left-0 right-0 z-30 h-[52px] px-3 bg-white/95 dark:bg-panel/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/90 flex items-center justify-between gap-2 shadow-md">
+      <!-- Left: Compact Logo & Title -->
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-slate-900 border border-amber-500/40 flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 64 64" fill="none" class="w-6 h-6">
+            <circle cx="32" cy="32" r="26" fill="#0F172A" stroke="#F59E0B" stroke-width="2.5"/>
+            <path d="M32 10C34.5 14 37 16.5 35 20.5C33.5 23 30.5 23 29 20.5C27 16.5 29.5 14 32 10Z" fill="#F59E0B"/>
+            <path d="M25 25C25 21.5 28 19 32 19C36 19 39 21.5 39 25V35C39 38 36.5 40.5 34 41.5V46C34 48.5 32 50 29.5 50" stroke="#F8FAFC" stroke-width="3.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-[9px] font-bold text-amber-500 uppercase tracking-wider">คชรัตน์เกมส์</span>
+          </div>
+          <h1 class="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">
+            แผนที่สนามกีฬาคชรัตน์เกมส์
+          </h1>
+        </div>
+      </div>
+
+      <!-- Right: Quick Mobile Actions (GPS, Map Layer, Fit All, Theme) -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="requestRealGPS()"
+          id="btnLocateMeMobile"
+          class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-[11px] font-bold shadow-sm smooth-transition">
+          <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+          <span>GPS</span>
+        </button>
+
+        <button onclick="toggleMobileMapLayer()"
+          id="mobileLayerToggleBtn"
+          class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 text-[11px] font-semibold active:scale-95 smooth-transition">
+          ดาวเทียม
+        </button>
+
+        <button onclick="fitAllLocations()"
+          title="ดูหมุดสนามกีฬาทั้งหมด"
+          class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-amber-500 border border-slate-200/80 dark:border-slate-700 active:scale-95 smooth-transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+          </svg>
+        </button>
+
+        <button onclick="toggleThemeMode()"
+          title="สลับโหมดมืด/สว่าง"
+          class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-400 border border-slate-200/80 dark:border-slate-700 active:scale-95 smooth-transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= LEFT SIDEBAR (DESKTOP) / 3-MODE BOTTOM SHEET (MOBILE) ================= -->
+    <aside id="sidebarPanel"
+      class="smooth-transition z-30 w-full lg:w-[460px] xl:w-[480px] bg-white/95 dark:bg-panel/95 backdrop-blur-2xl border-t lg:border-t-0 lg:border-r border-slate-200/80 dark:border-slate-800/90 flex flex-col shadow-dark-glow
+             fixed lg:relative bottom-0 left-0 h-[46dvh] lg:h-full rounded-t-3xl lg:rounded-none">
+
+      <!-- MOBILE SHEET CONTROLLER: 3 Quick Modes (แผนที่เต็ม | ครึ่งจอ | รายชื่อเต็ม) -->
+      <div class="lg:hidden px-3 pt-2 pb-1.5 border-b border-slate-200/60 dark:border-slate-800/80 shrink-0">
+        <div onclick="cycleMobileSheetMode()" class="flex flex-col items-center justify-center pb-1.5 cursor-pointer">
+          <div class="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900/95 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800">
+          <button onclick="setMobileSheetMode('map')" id="sheetBtn-map"
+            class="sheet-mode-btn py-1 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1 smooth-transition">
+            <span>🗺️ แผนที่เต็ม</span>
+          </button>
+          <button onclick="setMobileSheetMode('half')" id="sheetBtn-half"
+            class="sheet-mode-btn py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950 shadow-sm flex items-center justify-center gap-1 smooth-transition">
+            <span>⚖️ ครึ่งจอ</span>
+          </button>
+          <button onclick="setMobileSheetMode('full')" id="sheetBtn-full"
+            class="sheet-mode-btn py-1 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1 smooth-transition">
+            <span>🏟️ สนามทั้งหมด</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- DESKTOP HEADER (Hidden on Mobile to save space for cards!) -->
+      <div class="hidden lg:block px-5 pt-4 pb-3 border-b border-slate-200/70 dark:border-slate-800/80 shrink-0">
+        <div class="flex items-center justify-between gap-3">
+          <!-- Logo + Event Title -->
+          <div class="flex items-center gap-3 min-w-0">
+            <div
+              title="งานกีฬาคชรัตน์เกมส์ จังหวัดสุรินทร์"
+              class="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-slate-900 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-gold-glow overflow-hidden">
+              <div id="defaultLogoSvg" class="w-9 h-9 flex items-center justify-center">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                  <circle cx="32" cy="32" r="29" stroke="url(#goldGrad)" stroke-width="2" stroke-dasharray="4 2" opacity="0.75"/>
+                  <circle cx="32" cy="32" r="25" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="1.5"/>
+                  <path d="M32 9C34.5 13 37 15.5 35 19.5C33.5 22 30.5 22 29 19.5C27 15.5 29.5 13 32 9Z" fill="url(#flameGrad)"/>
+                  <path d="M20 26C16.5 26 14 29 14 33C14 37.5 17 40.5 21 40.5V31C21 28 23.5 25 27 25H37C40.5 25 43 28 43 31V40.5C47 40.5 50 37.5 50 33C50 29 47.5 26 44 26" stroke="url(#goldGrad)" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M25 24C25 20.5 28 18 32 18C36 18 39 20.5 39 24V34C39 37 36.5 39.5 34 40.5V46C34 48.5 32 50 29.5 50C27.5 50 26 48.5 26 46.5" stroke="#F8FAFC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M23 36C25 39 27.5 40 30 39" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M41 36C39 39 36.5 40 34 39" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+                  <defs>
+                    <linearGradient id="goldGrad" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FDE68A"/>
+                      <stop offset="0.5" stop-color="#F59E0B"/>
+                      <stop offset="1" stop-color="#B45309"/>
+                    </linearGradient>
+                    <linearGradient id="flameGrad" x1="32" y1="9" x2="32" y2="22" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FEF08A"/>
+                      <stop offset="1" stop-color="#EA580C"/>
+                    </linearGradient>
+                    <linearGradient id="bgGrad" x1="32" y1="7" x2="32" y2="57" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#1E293B"/>
+                      <stop offset="1" stop-color="#0F172A"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-bold tracking-wide">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                  KHATCHARAT GAMES
+                </span>
+                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500">• จ.สุรินทร์</span>
+              </div>
+              <h1 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate mt-0.5">
+                งานกีฬาคชรัตน์เกมส์
+              </h1>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                แผนที่ตำแหน่งสนามกีฬาและระบบนำทาง
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Controls: Theme Toggle & Fit All -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleThemeMode()"
+              id="themeToggleBtn"
+              title="สลับโหมดมืด / โหมดสว่าง"
+              class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 border border-slate-200/80 dark:border-slate-700/80 smooth-transition active:scale-95">
+              <svg id="themeIconDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+              </svg>
+              <svg id="themeIconLight" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            </button>
+
+            <button onclick="fitAllLocations()"
+              title="ดูหมุดสนามกีฬาทั้งหมดบนแผนที่"
+              class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium smooth-transition active:scale-95">
+              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+              </svg>
+              <span>ดูทั้งหมด</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Desktop GPS Bar -->
+        <div class="mt-3 p-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-500 dark:text-cyan-400 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">ตำแหน่งของคุณ:</span>
+                <span id="gpsModeBadge" class="px-1.5 py-0.2 bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded text-[10px] font-semibold">
+                  GPS ปัจจุบัน
+                </span>
+              </div>
+              <p id="userLocationText" class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                กดปุ่ม GPS เพื่อระบุตำแหน่งปัจจุบันของคุณ
+              </p>
+            </div>
+          </div>
+
+          <button onclick="requestRealGPS()"
+            id="btnLocateMe"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm smooth-transition active:scale-95 shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>GPS ปัจจุบัน</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- COMPACT SEARCH & FILTER BAR (Visible on both Mobile & Desktop, hidden when Mobile Sheet is in 'map' mode) -->
+      <div id="searchAndFilterSection" class="px-3.5 lg:px-5 py-2 lg:py-2.5 border-b border-slate-200/70 dark:border-slate-800/80 shrink-0 space-y-2">
+        <!-- Search + Sort Inline Row -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1">
+            <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              id="searchInput"
+              type="text"
+              oninput="handleSearchAndFilter()"
+              placeholder="ค้นหาชื่อสนามกีฬา, ประเภทกีฬา, พิกัด..."
+              class="w-full pl-8 pr-7 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 smooth-transition"
+            />
+            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Compact Sort Toggle -->
+          <div class="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-800 shrink-0 text-[10px]">
+            <button id="sortDefaultBtn" onclick="setSortMode('default')"
+              class="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-bold smooth-transition">
+              ตามลำดับ
+            </button>
+            <button id="sortDistanceBtn" onclick="setSortMode('distance')"
+              class="px-2 py-1 rounded-lg text-slate-500 dark:text-slate-400 font-medium smooth-transition">
+              ใกล้ฉัน
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Filter Pills + Result Count -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1 overflow-x-auto custom-scroll pb-0.5">
+            <button onclick="setFilter('ALL')" data-filter="ALL"
+              class="filter-pill active px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap smooth-transition bg-amber-500 text-slate-950 shadow-sm">
+              ทั้งหมด (8)
+            </button>
+            <button onclick="setFilter('CEREMONY')" data-filter="CEREMONY"
+              class="filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300">
+              พิธีเปิด & กรีฑา
+            </button>
+            <button onclick="setFilter('TEAM')" data-filter="TEAM"
+              class="filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300">
+              บาส / วอลเลย์ / ฟุตซอล
+            </button>
+            <button onclick="setFilter('RACKET')" data-filter="RACKET"
+              class="filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300">
+              ปิงปอง / แบดมินตัน
+            </button>
+            <button onclick="setFilter('PRECISION')" data-filter="PRECISION"
+              class="filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300">
+              เปตอง / ตะกร้อ
+            </button>
+          </div>
+          <span id="resultCountLabel" class="hidden sm:inline text-[10px] text-slate-400 shrink-0">8 สนาม</span>
+        </div>
+      </div>
+
+      <!-- Venue Cards List -->
+      <div id="cardsContainer" class="flex-1 overflow-y-auto custom-scroll p-3 lg:p-4 space-y-2.5 lg:space-y-3 bg-slate-50/60 dark:bg-obsidian/50 pb-6">
+        <!-- Populated dynamically via JS -->
+      </div>
+
+      <!-- Subtle Minimalist Footer (Desktop Only) -->
+      <div class="hidden lg:flex px-5 py-2.5 bg-white dark:bg-panel border-t border-slate-200/70 dark:border-slate-800/80 items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
+        <span>ระบบแผนที่และนำทางสนามกีฬาการแข่งขัน</span>
+        <span class="font-semibold text-amber-500">คชรัตน์เกมส์ • สุรินทร์</span>
+      </div>
+    </aside>
+
+    <!-- ================= MAIN INTERACTIVE MAP AREA ================= -->
+    <main class="relative flex-1 h-full w-full bg-slate-100 overflow-hidden">
+
+      <!-- Desktop Top Floating Map Bar (Hidden on Mobile because Mobile has its own compact top bar) -->
+      <div class="hidden lg:flex absolute top-4 left-4 right-4 z-20 flex-wrap items-center justify-between pointer-events-none gap-2">
+        <div class="pointer-events-auto flex items-center gap-2">
+          <div id="mapStatusBanner"
+            class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-dark-glow border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2.5">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <span id="mapBannerText" class="text-xs font-medium text-slate-700 dark:text-slate-200">
+              แตะเลือกสนามกีฬาเพื่อดูตำแหน่ง เส้นทาง และเปิดนำทางผ่าน Google Maps
+            </span>
+          </div>
+        </div>
+
+        <div class="pointer-events-auto flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-1 rounded-2xl shadow-dark-glow border border-slate-200/70 dark:border-slate-700/80">
+          <button onclick="switchMapLayer('googleStreets')" id="layerBtn-googleStreets"
+            class="map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 smooth-transition">
+            แผนที่ปกติ (Google Maps)
+          </button>
+          <button onclick="switchMapLayer('googleHybrid')" id="layerBtn-googleHybrid"
+            class="map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 smooth-transition">
+            ดาวเทียม (Satellite)
+          </button>
+        </div>
+      </div>
+
+      <!-- COMPACT FLOATING ROUTE BANNER (Docked neatly at top on Mobile so it NEVER collides with Bottom Sheet!) -->
+      <div id="routeOverlayCard"
+        class="hidden fixed lg:absolute top-[58px] lg:top-auto lg:bottom-6 left-2.5 right-2.5 lg:left-6 lg:right-6 max-w-xl mx-auto z-20 pointer-events-auto smooth-transition">
+        <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl lg:rounded-3xl shadow-dark-glow border border-slate-200/80 dark:border-slate-700/80 p-3 lg:p-4">
+          <!-- Top Info Row -->
+          <div class="flex items-start justify-between gap-2.5">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div id="routeCardColorIcon"
+                class="w-9 h-9 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl flex items-center justify-center text-white font-bold shrink-0 shadow-md text-base lg:text-lg"
+                style="background-color: #F59E0B;">
+                🏟️
+              </div>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span id="routeCardBadge" class="text-[11px] lg:text-xs font-bold text-amber-400 uppercase tracking-wide truncate">
+                    สนามที่ 1
+                  </span>
+                  <span id="routeCardCategoryBadge" class="px-1.5 py-0.2 rounded-full text-[9px] lg:text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    คชรัตน์เกมส์
+                  </span>
+                </div>
+                <h3 id="routeCardVenueName" class="text-xs sm:text-sm lg:text-base font-bold text-slate-900 dark:text-white truncate">
+                  สนามบาสเกตบอล
+                </h3>
+                <p id="routeCardCoords" class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                  พิกัด: 14.885102, 103.493950
+                </p>
+              </div>
+            </div>
+
+            <!-- Inline Distance, Time & Close Button -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <div class="bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 rounded-xl text-center">
+                <div id="routeDistanceVal" class="text-xs lg:text-sm font-bold text-cyan-600 dark:text-cyan-400 leading-tight">1.2 กม.</div>
+                <div class="text-[9px] text-cyan-600/80 dark:text-cyan-300/80">ระยะทาง</div>
+              </div>
+              <div class="bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-xl text-center">
+                <div id="routeDurationVal" class="text-xs lg:text-sm font-bold text-amber-600 dark:text-amber-400 leading-tight">3 นาที</div>
+                <div class="text-[9px] text-amber-600/80 dark:text-amber-300/80">เดินทาง</div>
+              </div>
+              <button onclick="clearActiveRoute()"
+                title="ปิดแถบนำทาง"
+                class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white active:scale-95 smooth-transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Compact 1-Row Quick Actions -->
+          <div class="mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-1.5 overflow-x-auto custom-scroll">
+            <div class="flex items-center gap-1.5">
+              <a id="googleMapsDirectLink"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] lg:text-xs font-bold shadow-sm whitespace-nowrap smooth-transition active:scale-95">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                </svg>
+                <span>เปิดนำทาง Google Maps</span>
+              </a>
+
+              <a id="routeCardPinLink"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-semibold whitespace-nowrap smooth-transition active:scale-95">
+                <span>📍 ดูหมุดสนาม</span>
+              </a>
+
+              <button onclick="copySelectedCoordinates()"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium whitespace-nowrap smooth-transition active:scale-95">
+                <span>คัดลอกพิกัด</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Container -->
+      <div id="map" class="w-full h-full z-10"></div>
+    </main>
+
+    <!-- Minimalist Toast Notification -->
+    <div id="toastNotification"
+      class="fixed top-14 lg:top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-3 smooth-transition">
+      <div class="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-dark-glow flex items-center gap-2 text-xs font-medium border border-slate-700 whitespace-nowrap">
+        <span id="toastDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span id="toastMessage">อัปเดตข้อมูลเรียบร้อยแล้ว</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= APPLICATION JAVASCRIPT ================= -->
+  <script>
+    /**
+     * ============================================================================
+     * ข้อมูลพิกัดสนามกีฬา งานกีฬาคชรัตน์เกมส์ จ.สุรินทร์ (ทั้งหมด 8 สนาม)
+     * ============================================================================
+     */
+
+    const TILE_LAYERS = {
+      googleStreets: {
+        url: 'https://mt1.google.com/vt/lyrs=m&hl=th&x={x}&y={y}&z={z}',
+        attribution: '&copy; Google Maps'
+      },
+      googleHybrid: {
+        url: 'https://mt1.google.com/vt/lyrs=y&hl=th&x={x}&y={y}&z={z}',
+        attribution: '&copy; Google Maps Satellite'
+      }
+    };
+
+    const VENUES = [
+      {
+        id: 'venue-1-basketball',
+        order: 1,
+        venueCode: 'สนามที่ 1',
+        venueShort: '1. สนามบาส',
+        venueName: 'สนามบาสเกตบอล',
+        sportType: 'กีฬาบาสเกตบอล',
+        category: 'TEAM',
+        emoji: '🏀',
+        dms: '14°53\'06.4"N 103°29\'38.2"E',
+        lat: 14.8851019,
+        lng: 103.4939501,
+        mapUrl: 'https://www.google.com/maps/place/14.885102,103.493950/data=!4m6!3m5!1s0!7e2!8m2!3d14.885101899999999!4d103.49395009999999!18m1!1e1?utm_source=mstt_1&entry=gps&coh=192189&g_ep=CAESBzI2LjM5LjQYACD67A0qxwEsOTQyNjc3MjcsOTQyOTIxOTUsOTQyOTk1MzIsMTAwNzk2NDk4LDEwMDc5Nzc2MSwxMDA3OTY1MzUsOTQyODA1NzYsOTQyMDczOTQsOTQyMDc1MDYsOTQyMDg1MDYsOTQyMTg2NTMsOTQyMjk4MzksOTQyNzUxNjgsOTQyNzk2MTksMTAwODM1NzEwLDEwMDgyNTAyNSwxMDA4MjAyMzcsMTAwODIyNDk0LDEwMDgyNzk3NSwxMDA4MzgzNTksMTIxODE2NDYxQgJUSA%3D%3D&skid=e94b474b-8c9d-4ced-8342-29c1795de09b&g_st=ac',
+        color: '#F97316', // Orange
+        keywords: 'สนามบาส บาสเกตบอล basketball สนามที่ 1'
+      },
+      {
+        id: 'venue-2-athletics',
+        order: 2,
+        venueCode: 'สนามที่ 2',
+        venueShort: '2. สนามกรีฑาและพิธีเปิด',
+        venueName: 'สนามกรีฑาและพิธีเปิด',
+        sportType: 'พิธีเปิดการแข่งขัน & กรีฑา',
+        category: 'CEREMONY',
+        emoji: '🏃',
+        dms: '14°51\'40.7"N 103°28\'49.7"E',
+        lat: 14.861296,
+        lng: 103.480483,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'40.7%22N+103%C2%B028\'49.7%22E/@14.861296,103.480483,1093m/data=!3m2!1e3!4b1!4m4!3m3!8m2!3d14.861296!4d103.480483?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#F59E0B', // Amber Gold
+        keywords: 'สนามกรีฑา พิธีเปิด วิ่ง กรีฑาและพิธีเปิด athletics opening ceremony สนามที่ 2'
+      },
+      {
+        id: 'venue-3-volleyball',
+        order: 3,
+        venueCode: 'สนามที่ 3',
+        venueShort: '3. สนามวอลเลย์บอล',
+        venueName: 'สนามวอลเลย์บอล',
+        sportType: 'กีฬาวอลเลย์บอล',
+        category: 'TEAM',
+        emoji: '🏐',
+        dms: '14°51\'35.8"N 103°28\'53.2"E',
+        lat: 14.8599369,
+        lng: 103.4814376,
+        mapUrl: 'https://www.google.com/maps/place/14.859937,103.481438/data=!4m6!3m5!1s0!7e2!8m2!3d14.8599369!4d103.48143759999999!18m1!1e1?utm_source=mstt_1&entry=gps&coh=192189&g_ep=CAESBzI2LjM5LjQYACD67A0qxwEsOTQyNjc3MjcsOTQyOTIxOTUsOTQyOTk1MzIsMTAwNzk2NDk4LDEwMDc5Nzc2MSwxMDA3OTY1MzUsOTQyODA1NzYsOTQyMDczOTQsOTQyMDc1MDYsOTQyMDg1MDYsOTQyMTg2NTMsOTQyMjk4MzksOTQyNzUxNjgsOTQyNzk2MTksMTAwODM1NzEwLDEwMDgyNTAyNSwxMDA4MjAyMzcsMTAwODIyNDk0LDEwMDgyNzk3NSwxMDA4MzgzNTksMTIxODE2NDYxQgJUSA%3D%3D&skid=9011b9e2-e95b-4c8b-a343-de680492f501&g_st=ac',
+        color: '#3B82F6', // Blue
+        keywords: 'สนามวอลเลย์บอล วอลเลย์บอล volleyball สนามที่ 3'
+      },
+      {
+        id: 'venue-4-futsal',
+        order: 4,
+        venueCode: 'สนามที่ 4',
+        venueShort: '4. สนามฟุตซอล',
+        venueName: 'สนามฟุตซอล',
+        sportType: 'กีฬาฟุตซอล',
+        category: 'TEAM',
+        emoji: '⚽',
+        dms: '14°51\'37.8"N 103°29\'18.6"E',
+        lat: 14.860512,
+        lng: 103.488512,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'37.8%22N+103%C2%B029\'18.6%22E/@14.8605434,103.4884961,273m/data=!3m1!1e3!4m4!3m3!8m2!3d14.860512!4d103.488512?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#10B981', // Emerald
+        keywords: 'สนามฟุตซอล ฟุตซอล ฟุตบอล futsal สนามที่ 4'
+      },
+      {
+        id: 'venue-5-tabletennis',
+        order: 5,
+        venueCode: 'สนามที่ 5',
+        venueShort: '5. สนามเทเบิลเทนนิส',
+        venueName: 'สนามเทเบิลเทนนิส',
+        sportType: 'กีฬาเทเบิลเทนนิส (ปิงปอง)',
+        category: 'RACKET',
+        emoji: '🏓',
+        dms: '14°51\'39.4"N 103°28\'59.2"E',
+        lat: 14.860956,
+        lng: 103.483100,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'39.4%22N+103%C2%B028\'59.2%22E/@14.860956,103.4831,1093m/data=!3m2!1e3!4b1!4m4!3m3!8m2!3d14.860956!4d103.4831?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#EC4899', // Pink
+        keywords: 'สนามเทเบิลเทนนิส เทเบิลเทนนิส ปิงปอง table tennis pingpong สนามที่ 5'
+      },
+      {
+        id: 'venue-6-badminton',
+        order: 6,
+        venueCode: 'สนามที่ 6',
+        venueShort: '6. แบดมินตัน',
+        venueName: 'สนามแบดมินตัน',
+        sportType: 'กีฬาแบดมินตัน',
+        category: 'RACKET',
+        emoji: '🏸',
+        dms: '14°51\'40.5"N 103°28\'56.8"E',
+        lat: 14.861247,
+        lng: 103.482430,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'40.5%22N+103%C2%B028\'56.8%22E/@14.8610137,103.4823922,1300m/data=!3m1!1e3!4m4!3m3!8m2!3d14.861247!4d103.48243?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#06B6D4', // Cyan
+        keywords: 'สนามแบดมินตัน แบดมินตัน ตีแบด badminton สนามที่ 6'
+      },
+      {
+        id: 'venue-7-petanque',
+        order: 7,
+        venueCode: 'สนามที่ 7',
+        venueShort: '7. สนามเปตอง',
+        venueName: 'สนามเปตอง',
+        sportType: 'กีฬาเปตอง',
+        category: 'PRECISION',
+        emoji: '🎯',
+        dms: '14°51\'13.8"N 103°28\'57.5"E',
+        lat: 14.853820,
+        lng: 103.482628,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'13.8%22N+103%C2%B028\'57.5%22E/@14.8535014,103.4818408,194m/data=!3m1!1e3!4m4!3m3!8m2!3d14.85382!4d103.482628?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#A855F7', // Purple
+        keywords: 'สนามเปตอง เปตอง petanque สนามที่ 7'
+      },
+      {
+        id: 'venue-8-takraw',
+        order: 8,
+        venueCode: 'สนามที่ 8',
+        venueShort: '8. สนามตะกร้อ',
+        venueName: 'สนามตะกร้อ',
+        sportType: 'กีฬาเซปักตะกร้อ',
+        category: 'PRECISION',
+        emoji: '⚡',
+        dms: '14°51\'11.1"N 103°28\'56.6"E',
+        lat: 14.853088,
+        lng: 103.482394,
+        mapUrl: 'https://www.google.com/maps/place/14%C2%B051\'11.1%22N+103%C2%B028\'56.6%22E/@14.8529455,103.4821907,293m/data=!3m1!1e3!4m4!3m3!8m2!3d14.853088!4d103.482394?entry=ttu&g_ep=EgoyMDI2MTEwMi4wIKXMDSoASAFQAw%3D%3D',
+        color: '#6366F1', // Indigo
+        keywords: 'สนามตะกร้อ ตะกร้อ เซปักตะกร้อ takraw สนามที่ 8'
+      }
+    ];
+
+    // Application State
+    let map = null;
+    let currentTileLayer = null;
+    let currentLayerKey = 'googleStreets';
+    let markersMap = {};
+    let userMarker = null;
+    let routePolyline = null;
+    let routeShadowPolyline = null;
+
+    // User's Current GPS Location State
+    let userLocation = {
+      lat: 14.861296,
+      lng: 103.480483,
+      mode: 'LIVE_GPS',
+      label: 'ตำแหน่งเริ่มต้น (สนามกรีฑาและพิธีเปิด)'
+    };
+
+    let selectedId = null;
+    let currentFilter = 'ALL';
+    let currentSort = 'default';
+    let mobileSheetMode = 'half'; // 'map' | 'half' | 'full'
+    let isDarkMode = true;
+
+    /**
+     * Initialize Leaflet Map & Default Google Maps Layer
+     */
+    function initMap() {
+      map = L.map('map', {
+        center: [14.8645, 103.4855],
+        zoom: 14,
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      switchMapLayer('googleStreets');
+      updateUserMarkerOnMap();
+
+      window.addEventListener('resize', () => {
+        if (map) map.invalidateSize();
+      });
+    }
+
+    /**
+     * Toggle Dark / Light UI Theme
+     */
+    function toggleThemeMode() {
+      isDarkMode = !isDarkMode;
+      const htmlEl = document.documentElement;
+      const darkIcon = document.getElementById('themeIconDark');
+      const lightIcon = document.getElementById('themeIconLight');
+
+      if (isDarkMode) {
+        htmlEl.classList.add('dark');
+        if (darkIcon) darkIcon.classList.remove('hidden');
+        if (lightIcon) lightIcon.classList.add('hidden');
+      } else {
+        htmlEl.classList.remove('dark');
+        if (darkIcon) darkIcon.classList.add('hidden');
+        if (lightIcon) lightIcon.classList.remove('hidden');
+      }
+    }
+
+    /**
+     * Calculate Haversine Distance (km) & Update All Items
+     */
+    function calculateHaversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function updateDistancesFromUser() {
+      VENUES.forEach(item => {
+        const straightKm = calculateHaversineKm(
+          userLocation.lat,
+          userLocation.lng,
+          item.lat,
+          item.lng
+        );
+        const roadEstimateKm = straightKm * 1.25;
+        item.distanceKm = roadEstimateKm;
+        item.durationMin = Math.max(1, Math.round((roadEstimateKm / 40) * 60));
+      });
+    }
+
+    /**
+     * Get Filtered & Sorted Venue List
+     */
+    function getFilteredList() {
+      const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+
+      const filtered = VENUES.filter(item => {
+        if (currentFilter !== 'ALL' && item.category !== currentFilter) return false;
+
+        if (query) {
+          const haystack = `${item.venueCode} ${item.venueShort} ${item.venueName} ${item.sportType} ${item.dms} ${item.lat} ${item.lng} ${item.keywords}`.toLowerCase();
+          return haystack.includes(query);
+        }
+        return true;
+      });
+
+      if (currentSort === 'distance') {
+        return [...filtered].sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+      }
+      return [...filtered].sort((a, b) => a.order - b.order);
+    }
+
+    /**
+     * Render Custom Pill Markers on Leaflet Map
+     */
+    function renderMapMarkers() {
+      if (!map) return;
+
+      Object.values(markersMap).forEach(marker => map.removeLayer(marker));
+      markersMap = {};
+
+      const filtered = getFilteredList();
+
+      filtered.forEach(item => {
+        const isSelected = item.id === selectedId;
+        const pinIcon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `
+            <div class="marker-pill ${isSelected ? 'active-pin' : ''}">
+              <span style="width:9px;height:9px;border-radius:9999px;background:${item.color};box-shadow:0 0 8px ${item.color};display:inline-block;flex-shrink:0;"></span>
+              <span style="font-size:11px;font-weight:700;">${item.venueShort}</span>
+            </div>
+            <div class="marker-anchor-dot" style="background:${item.color};"></div>
+          `,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        });
+
+        const marker = L.marker([item.lat, item.lng], {
+          icon: pinIcon,
+          zIndexOffset: isSelected ? 900 : 100
+        }).addTo(map);
+
+        marker.on('click', () => {
+          selectVenue(item.id);
+        });
+
+        markersMap[item.id] = marker;
+      });
+    }
+
+    /**
+     * Copy Only Selected Venue Coordinates (lat, lng)
+     */
+    function copySelectedCoordinates() {
+      if (!selectedId) return;
+      const item = VENUES.find(i => i.id === selectedId);
+      if (!item) return;
+
+      const coordsOnly = `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`;
+      const textArea = document.createElement('textarea');
+      textArea.value = coordsOnly;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(`คัดลอกพิกัด ${coordsOnly} แล้ว`, '#10B981');
+      } catch (err) {
+        showToast('ไม่สามารถคัดลอกพิกัดได้', '#EF4444');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    /**
+     * Initialize Application on Window Load
+     */
+    window.onload = function () {
+      initMap();
+      updateDistancesFromUser();
+      renderVenueCards();
+      renderMapMarkers();
+      fitAllLocations();
+      requestRealGPS(true);
+    };
+
+    /**
+     * Switch Map Tile Layer (Google Maps Standard / Google Satellite)
+     */
+    function switchMapLayer(layerKey) {
+      if (!map) return;
+
+      currentLayerKey = layerKey;
+      if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+      }
+
+      const layerCfg = TILE_LAYERS[layerKey] || TILE_LAYERS.googleStreets;
+      currentTileLayer = L.tileLayer(layerCfg.url, {
+        maxZoom: 20,
+        attribution: layerCfg.attribution
+      }).addTo(map);
+
+      document.querySelectorAll('.map-layer-btn').forEach(btn => {
+        btn.className = 'map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 smooth-transition';
+      });
+      const activeBtn = document.getElementById(`layerBtn-${layerKey}`);
+      if (activeBtn) {
+        activeBtn.className = 'map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 smooth-transition';
+      }
+
+      const mobileLayerBtn = document.getElementById('mobileLayerToggleBtn');
+      if (mobileLayerBtn) {
+        mobileLayerBtn.textContent = layerKey === 'googleStreets' ? 'ดาวเทียม' : 'แผนที่ปกติ';
+      }
+    }
+
+    function toggleMobileMapLayer() {
+      const nextLayer = currentLayerKey === 'googleStreets' ? 'googleHybrid' : 'googleStreets';
+      switchMapLayer(nextLayer);
+    }
+
+    /**
+     * Create or Update User's Current Position Marker on Map
+     */
+    function updateUserMarkerOnMap() {
+      const userIcon = L.divIcon({
+        className: 'custom-pin-wrapper',
+        html: `
+          <div class="user-location-marker" title="ตำแหน่งปัจจุบันของคุณ">
+            <div class="user-location-pulse"></div>
+            <div class="user-location-core"></div>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+
+      if (userMarker) {
+        userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+      } else {
+        userMarker = L.marker([userLocation.lat, userLocation.lng], {
+          icon: userIcon,
+          zIndexOffset: 1000
+        }).addTo(map);
+
+        userMarker.bindTooltip('ตำแหน่งปัจจุบันของคุณ', {
+          direction: 'top',
+          offset: [0, -10],
+          className: 'text-xs font-sans font-medium px-2.5 py-1 rounded-lg shadow-sm'
+        });
+      }
+
+      const badgeEl = document.getElementById('gpsModeBadge');
+      const locTextEl = document.getElementById('userLocationText');
+
+      if (badgeEl) {
+        badgeEl.textContent = 'GPS ปัจจุบัน';
+        badgeEl.className = 'px-1.5 py-0.2 bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded text-[10px] font-semibold';
+      }
+      if (locTextEl) {
+        locTextEl.textContent = `${userLocation.label} (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)})`;
+      }
+    }
+
+    /**
+     * Request Real Browser GPS Location
+     */
+    function requestRealGPS(isSilentInit = false) {
+      const btn = document.getElementById('btnLocateMe');
+      const btnMobile = document.getElementById('btnLocateMeMobile');
+      const originalHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>GPS ปัจจุบัน</span>
+      `;
+      const originalMobileHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+        <span>GPS</span>
+      `;
+
+      if (btn) {
+        btn.innerHTML = `
+          <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>กำลังค้นหา...</span>
+        `;
+      }
+      if (btnMobile) {
+        btnMobile.innerHTML = `<span>ค้นหา...</span>`;
+      }
+
+      if (!navigator.geolocation) {
+        if (btn) btn.innerHTML = originalHTML;
+        if (btnMobile) btnMobile.innerHTML = originalMobileHTML;
+        if (!isSilentInit) {
+          showToast('เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่ง GPS', '#F59E0B');
+        }
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          if (btn) btn.innerHTML = originalHTML;
+          if (btnMobile) btnMobile.innerHTML = originalMobileHTML;
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setCustomUserLocation(lat, lng, 'พิกัด GPS ปัจจุบันของคุณ', 'LIVE_GPS');
+          if (!isSilentInit) {
+            showToast('ระบุตำแหน่ง GPS ปัจจุบันสำเร็จ!', '#10B981');
+            map.flyTo([lat, lng], 15, { duration: 1.2 });
+          }
+        },
+        function () {
+          if (btn) btn.innerHTML = originalHTML;
+          if (btnMobile) btnMobile.innerHTML = originalMobileHTML;
+          if (!isSilentInit) {
+            showToast('กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS) บนเบราว์เซอร์ของคุณ', '#F59E0B');
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    /**
+     * Update User Location State & Recalculate All Routes
+     */
+    function setCustomUserLocation(lat, lng, label, mode) {
+      userLocation = { lat, lng, label, mode };
+      updateUserMarkerOnMap();
+      updateDistancesFromUser();
+      renderVenueCards();
+
+      if (selectedId) {
+        const activeItem = VENUES.find(item => item.id === selectedId);
+        if (activeItem) {
+          drawRouteToVenue(activeItem, true);
+        }
+      }
+    }
+
+    /**
+     * Render Sports Venue Cards (No coordinator names or phone numbers)
+     */
+    function renderVenueCards() {
+      const container = document.getElementById('cardsContainer');
+      const filtered = getFilteredList();
+
+      const countEl = document.getElementById('resultCountLabel');
+      if (countEl) {
+        countEl.textContent = `${filtered.length} สนามกีฬา`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white dark:bg-cardDark/80 rounded-2xl p-6 text-center border border-slate-200/70 dark:border-slate-800 my-2">
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">ไม่พบข้อมูลสนามกีฬาที่ค้นหา</p>
+            <p class="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือกดดูตัวกรอง "ทั้งหมด"</p>
+            <button onclick="resetFilters()" class="mt-3 px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-500 text-xs font-semibold hover:bg-amber-500/30 smooth-transition">
+              แสดงสนามทั้งหมด
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isSelected = item.id === selectedId;
+        const distText = item.distanceKm < 1
+          ? `${Math.round(item.distanceKm * 1000)} ม.`
+          : `${item.distanceKm.toFixed(1)} กม.`;
+
+        const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${item.lat},${item.lng}&travelmode=driving`;
+        const pinMapUrl = item.mapUrl || `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
+
+        return `
+          <div id="card-${item.id}"
+            onclick="selectVenue('${item.id}')"
+            class="group relative bg-white dark:bg-cardDark/90 rounded-2xl p-3.5 lg:p-4 cursor-pointer smooth-transition border
+                   ${isSelected
+                     ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-gold-glow'
+                     : 'border-slate-200/80 dark:border-slate-800/90 hover:border-slate-300 dark:hover:border-slate-700'}">
+
+            <!-- Left Accent Indicator -->
+            <div class="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full smooth-transition"
+              style="background-color: ${item.color};"></div>
+
+            <div class="pl-2">
+              <!-- Top Row: Venue Number Badge + Sport Type Badge -->
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}; box-shadow: 0 0 8px ${item.color};"></span>
+                  <span class="text-xs font-bold text-slate-500 dark:text-slate-300 truncate">${item.venueCode}</span>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  ${item.emoji} ${item.sportType}
+                </span>
+              </div>
+
+              <!-- Venue Name & Distance -->
+              <div class="flex items-baseline justify-between gap-2 mt-0.5">
+                <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-amber-400 group-hover:text-amber-500 smooth-transition truncate">
+                  ${item.venueShort}
+                </h3>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span class="text-xs font-bold text-cyan-600 dark:text-cyan-400">${distText}</span>
+                  <span class="text-[10px] text-slate-400">• ~${item.durationMin} นาที</span>
+                </div>
+              </div>
+
+              <!-- Coordinates Info -->
+              <div class="flex items-center justify-between gap-2 mt-1">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                  📍 ${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}
+                </p>
+                <span class="text-[10px] text-slate-400 dark:text-slate-500 font-mono shrink-0">${item.dms}</span>
+              </div>
+
+              <!-- Card Footer Actions -->
+              <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  onclick="event.stopPropagation(); selectVenue('${item.id}', true)"
+                  class="inline-flex items-center gap-1 text-xs font-semibold ${isSelected ? 'text-amber-500' : 'text-slate-600 dark:text-slate-400 group-hover:text-amber-400'} smooth-transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                  </svg>
+                  <span>${isSelected ? 'กำลังแสดงเส้นทาง' : 'ดูเส้นทางบนแผนที่'}</span>
+                </button>
+
+                <div class="flex items-center gap-1.5">
+                  <a href="${pinMapUrl}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="event.stopPropagation();"
+                    title="เปิดลิงก์หมุดสนามกีฬาบน Google Maps"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold smooth-transition">
+                    <svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>หมุดสนาม</span>
+                  </a>
+
+                  <a href="${googleNavUrl}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="event.stopPropagation();"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-600 dark:text-amber-300 hover:text-slate-950 text-[11px] font-bold smooth-transition">
+                    <span>นำทาง</span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Select a Venue Card/Pin & Draw Live Route from User Location
+     */
+    function selectVenue(id, focusMapOnMobile = false) {
+      selectedId = id;
+      const item = VENUES.find(i => i.id === id);
+      if (!item) return;
+
+      // On mobile, if the sheet is covering the full screen, switch to 'half' so the map & route are visible
+      if (window.innerWidth < 1024 && (mobileSheetMode === 'full' || focusMapOnMobile)) {
+        setMobileSheetMode('half');
+      }
+
+      renderVenueCards();
+      renderMapMarkers();
+
+      const cardEl = document.getElementById(`card-${id}`);
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      drawRouteToVenue(item, false);
+    }
+
+    /**
+     * Fetch OSRM Driving Route & Draw Smooth Polyline on Map
+     */
+    async function drawRouteToVenue(item, keepZoom) {
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (routeShadowPolyline) map.removeLayer(routeShadowPolyline);
+
+      const overlay = document.getElementById('routeOverlayCard');
+      overlay.classList.remove('hidden');
+
+      const iconEl = document.getElementById('routeCardColorIcon');
+      iconEl.style.backgroundColor = item.color;
+      iconEl.textContent = item.emoji || '🏟️';
+
+      document.getElementById('routeCardBadge').textContent = item.venueCode;
+      document.getElementById('routeCardBadge').style.color = item.color;
+      document.getElementById('routeCardCategoryBadge').textContent = item.sportType;
+      document.getElementById('routeCardVenueName').textContent = item.venueShort;
+      document.getElementById('routeCardCoords').textContent =
+        `พิกัด: ${item.lat.toFixed(6)}, ${item.lng.toFixed(6)} (${item.dms})`;
+
+      const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${item.lat},${item.lng}&travelmode=driving`;
+      document.getElementById('googleMapsDirectLink').href = googleNavUrl;
+      document.getElementById('routeCardPinLink').href = item.mapUrl;
+
+      const fallbackDistText = item.distanceKm < 1
+        ? `${Math.round(item.distanceKm * 1000)} ม.`
+        : `${item.distanceKm.toFixed(1)} กม.`;
+      document.getElementById('routeDistanceVal').textContent = fallbackDistText;
+      document.getElementById('routeDurationVal').textContent = `${item.durationMin} นาที`;
+
+      if (!keepZoom) {
+        const isMobile = window.innerWidth < 1024;
+        const bottomPad = isMobile
+          ? (mobileSheetMode === 'map' ? 95 : Math.round(window.innerHeight * 0.48))
+          : 180;
+        const topPad = isMobile ? 195 : 80;
+
+        const bounds = L.latLngBounds(
+          [userLocation.lat, userLocation.lng],
+          [item.lat, item.lng]
+        );
+        map.flyToBounds(bounds, {
+          paddingTopLeft: [40, topPad],
+          paddingBottomRight: [40, bottomPad],
+          maxZoom: 17,
+          duration: 1.0
+        });
+      }
+
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${item.lng},${item.lat}?overview=full&geometries=geojson`;
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+          routeShadowPolyline = L.polyline(coords, {
+            color: item.color,
+            weight: 10,
+            opacity: 0.28,
+            lineCap: 'round',
+            lineJoin: 'round'
+          }).addTo(map);
+
+          routePolyline = L.polyline(coords, {
+            color: item.color,
+            weight: 5,
+            opacity: 0.98,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'animated-route-line'
+          }).addTo(map);
+
+          const realKm = route.distance / 1000;
+          const realMin = Math.max(1, Math.round(route.duration / 60));
+
+          item.distanceKm = realKm;
+          item.durationMin = realMin;
+
+          document.getElementById('routeDistanceVal').textContent =
+            realKm < 1 ? `${Math.round(route.distance)} ม.` : `${realKm.toFixed(1)} กม.`;
+          document.getElementById('routeDurationVal').textContent = `${realMin} นาที`;
+          return;
+        }
+      } catch (err) {}
+
+      const fallbackCoords = [
+        [userLocation.lat, userLocation.lng],
+        [item.lat, item.lng]
+      ];
+      routePolyline = L.polyline(fallbackCoords, {
+        color: item.color,
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '8, 8'
+      }).addTo(map);
+    }
+
+    /**
+     * Clear Active Route & Reset Overlay
+     */
+    function clearActiveRoute() {
+      selectedId = null;
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (routeShadowPolyline) map.removeLayer(routeShadowPolyline);
+      document.getElementById('routeOverlayCard').classList.add('hidden');
+      renderVenueCards();
+      renderMapMarkers();
+    }
+
+    /**
+     * Fit All Venue Pins & User Location in View
+     */
+    function fitAllLocations() {
+      clearActiveRoute();
+      const filtered = getFilteredList();
+      const points = filtered.map(i => [i.lat, i.lng]);
+
+      if (points.length > 0) {
+        const bounds = L.latLngBounds(points);
+        map.flyToBounds(bounds, {
+          padding: [60, 60],
+          maxZoom: 16,
+          duration: 1.1
+        });
+      }
+    }
+
+    /**
+     * Filter & Search UI Handlers
+     */
+    function setFilter(filterKey) {
+      currentFilter = filterKey;
+      document.querySelectorAll('.filter-pill').forEach(btn => {
+        const key = btn.getAttribute('data-filter');
+        if (key === filterKey) {
+          btn.className = 'filter-pill active px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap smooth-transition bg-amber-500 text-slate-950 shadow-sm';
+        } else {
+          btn.className = 'filter-pill px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300';
+        }
+      });
+
+      handleSearchAndFilter();
+    }
+
+    function setSortMode(mode) {
+      currentSort = mode;
+      const defaultBtn = document.getElementById('sortDefaultBtn');
+      const distBtn = document.getElementById('sortDistanceBtn');
+
+      if (mode === 'distance') {
+        distBtn.className = 'px-2 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-bold smooth-transition';
+        defaultBtn.className = 'px-2 py-1 rounded-lg text-slate-500 dark:text-slate-400 font-medium smooth-transition';
+      } else {
+        defaultBtn.className = 'px-2 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-bold smooth-transition';
+        distBtn.className = 'px-2 py-1 rounded-lg text-slate-500 dark:text-slate-400 font-medium smooth-transition';
+      }
+
+      renderVenueCards();
+    }
+
+    function handleSearchAndFilter() {
+      const val = document.getElementById('searchInput').value;
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (val.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      renderVenueCards();
+      renderMapMarkers();
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      handleSearchAndFilter();
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      setFilter('ALL');
+    }
+
+    /**
+     * 3-Mode Mobile Bottom Sheet Controller ('map' | 'half' | 'full')
+     */
+    function setMobileSheetMode(mode) {
+      mobileSheetMode = mode;
+      const panel = document.getElementById('sidebarPanel');
+      const searchSec = document.getElementById('searchAndFilterSection');
+      const cardsSec = document.getElementById('cardsContainer');
+
+      panel.classList.remove('h-[62px]', 'h-[46dvh]', 'h-[85dvh]');
+
+      if (mode === 'map') {
+        panel.classList.add('h-[62px]');
+        searchSec.classList.add('hidden', 'lg:block');
+        cardsSec.classList.add('hidden', 'lg:block');
+      } else if (mode === 'full') {
+        panel.classList.add('h-[85dvh]');
+        searchSec.classList.remove('hidden');
+        cardsSec.classList.remove('hidden');
+      } else {
+        panel.classList.add('h-[46dvh]');
+        searchSec.classList.remove('hidden');
+        cardsSec.classList.remove('hidden');
+      }
+
+      ['map', 'half', 'full'].forEach(key => {
+        const btn = document.getElementById(`sheetBtn-${key}`);
+        if (!btn) return;
+        if (key === mode) {
+          btn.className = 'sheet-mode-btn py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950 shadow-sm flex items-center justify-center gap-1 smooth-transition';
+        } else {
+          btn.className = 'sheet-mode-btn py-1 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1 smooth-transition';
+        }
+      });
+
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+      }, 320);
+    }
+
+    function cycleMobileSheetMode() {
+      if (mobileSheetMode === 'half') setMobileSheetMode('full');
+      else if (mobileSheetMode === 'full') setMobileSheetMode('map');
+      else setMobileSheetMode('half');
+    }
+
+    /**
+     * Minimalist Toast Helper
+     */
+    let toastTimeout = null;
+    function showToast(message, dotColor = '#F59E0B') {
+      const toast = document.getElementById('toastNotification');
+      const msgEl = document.getElementById('toastMessage');
+      const dotEl = document.getElementById('toastDot');
+
+      msgEl.textContent = message;
+      dotEl.style.backgroundColor = dotColor;
+
+      toast.classList.remove('opacity-0', '-translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-3');
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
